@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 from tkinter import Tk, filedialog
-# from PIL import Image
-import matplotlib.pyplot as plt
 import os
 
 def open_image():
@@ -95,6 +93,15 @@ def save_image(image, output_path):
     cv2.imwrite(output_path, image)
     print(f"Image saved to {output_path}")
 
+def display_images(original, rotated, cropped, upscaled):
+    # Display the images using OpenCV
+    cv2.imshow("Original Image", original)
+    cv2.imshow("Rotated Image", rotated)
+    cv2.imshow("Cropped Image", cropped)
+    cv2.imshow("Upscaled Image (1000x1000)", upscaled)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
 def main():
     # Open the image
     file_path = open_image()
@@ -141,30 +148,13 @@ def main():
     output_path = os.path.join(os.path.dirname(file_path), "rezult.jpg")
     save_image(upscaled_image, output_path)
     
-    # Display the original, rotated, cropped, and upscaled images
-    plt.figure(figsize=(15, 10))
-    
-    plt.subplot(2, 2, 1)
-    plt.title("Original Image")
-    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    plt.axis('off')
-    
-    plt.subplot(2, 2, 2)
-    plt.title("Rotated Image")
-    plt.imshow(cv2.cvtColor(rotated_image, cv2.COLOR_BGR2RGB))
-    plt.axis('off')
-    
-    plt.subplot(2, 2, 3)
-    plt.title("Cropped Image")
-    plt.imshow(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))
-    plt.axis('off')
-    
-    plt.subplot(2, 2, 4)
-    plt.title("Upscaled Image (1000x1000)")
-    plt.imshow(cv2.cvtColor(upscaled_image, cv2.COLOR_BGR2RGB))
-    plt.axis('off')
-    
-    plt.show()
+    # Display the images using OpenCV
+    display_images(
+        cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
+        cv2.cvtColor(rotated_image, cv2.COLOR_BGR2RGB),
+        cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB),
+        cv2.cvtColor(upscaled_image, cv2.COLOR_BGR2RGB)
+    )
 
 if __name__ == "__main__":
     main()
