@@ -1,5 +1,6 @@
 # Ignore virtual environment
 venv/
+venv_optimized/
 __pycache__/
 *.pyc
 *.pyo
@@ -11,3 +12,15 @@ __pycache__/
 *.jpeg
 *.png
 *.env
+# Ignore build and distribution directories
+build/
+dist/
+*.spec
+
+# Ignore IDE-specific files
+.vscode/
+.idea/
+
+# Ignore system-specific files
+.DS_Store
+Thumbs.db
