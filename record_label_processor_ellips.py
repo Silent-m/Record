@@ -32,6 +32,55 @@ def detect_label(image):
         return mask
     return None
 
+def detect_ellipse(image, mask):
+    # Find contours in the mask
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    
+    # Fit an ellipse to the largest contour
+    largest_contour = max(contours, key=cv2.contourArea)
+    if len(largest_contour) < 5:  # Need at least 5 points to fit an ellipse
+        return None
+    
+    ellipse = cv2.fitEllipse(largest_contour)
+    return ellipse
+
+def is_ellipse_circle(ellipse, tolerance=0.01):
+    (center, axes, angle) = ellipse
+    (major_axis, minor_axis) = axes
+    
+    # Calculate the aspect ratio
+    aspect_ratio = minor_axis / major_axis
+    
+    # Check if the aspect ratio is within the tolerance of 1 (perfect circle)
+    return abs(1 - aspect_ratio) <= tolerance
+
+def correct_perspective(image, ellipse):
+    (center, axes, angle) = ellipse
+    (major_axis, minor_axis) = axes
+    
+    # Define the target circle dimensions
+    target_radius = int(max(major_axis, minor_axis) / 2)
+    
+    # Define the source points (ellipse vertices)
+    src_points = cv2.boxPoints(ellipse)
+    
+    # Define the destination points (circle)
+    dst_points = np.array([
+        [center[0] - target_radius, center[1] - target_radius],
+        [center[0] + target_radius, center[1] - target_radius],
+        [center[0] + target_radius, center[1] + target_radius],
+        [center[0] - target_radius, center[1] + target_radius]
+    ], dtype=np.float32)
+    
+    # Compute the perspective transform matrix
+    transform_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+    
+    # Apply the perspective transformation
+    corrected_image = cv2.warpPerspective(image, transform_matrix, (image.shape[1], image.shape[0]))
+    return corrected_image
+
 def detect_text_lines(image, mask):
     # Apply the mask to the original image
     masked_image = cv2.bitwise_and(image, image, mask=mask)
