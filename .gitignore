@@ -1,9 +1,13 @@
-__pycache__/
+# Ignore virtual environment
 venv/
-.vscode/
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
 *.jpg
 *.jpeg
 *.png
 *.env
-*.log
