@@ -1,6 +1,6 @@
 """
 Record Label Processor
-Stage 1: Rotation correction for vinyl records on white background.
+Stage 1: Rotation correction for circular labels on white background.
 
 Image structure (outer to inner):
     White background
@@ -260,7 +260,7 @@ def correct_rotation(image, angle):
     Rotating before cropping ensures label bounding box corners
     contain real vinyl surface, not artificially filled pixels.
 
-    arctan2 returns positive for CCW lines -> apply angle to correct.
+    arctan2 returns positive for CCW lines -> apply -angle to correct.
     """
     if abs(angle) < 0.1:
         print("  Angle negligible — skipping rotation.")
@@ -361,6 +361,26 @@ def process_image(path):
     print("\n[Stage 4] Rotating full image...")
     rotated = correct_rotation(image, angle)
     save_debug(rotated, path, "2_rotated")
+
+    # Stage 4b – Re-detect record center after rotation
+    # The record may have shifted in the frame after rotation,
+    # especially when it was not centered in a rectangular image.
+    # We re-run detection on the rotated image to get the correct center.
+    print("\n[Stage 4b] Re-detecting center after rotation...")
+    record_rotated = detect_record(rotated)
+    if record_rotated is not None:
+        geometry_rotated = estimate_label(record_rotated)
+        # Sanity check: label radius should not change significantly
+        delta_r = abs(geometry_rotated["label_radius"] - geometry["label_radius"])
+        if delta_r < geometry["label_radius"] * 0.05:
+            geometry = geometry_rotated
+            print(f"  Center updated to "
+                  f"({geometry['center'][0]}, {geometry['center'][1]})")
+        else:
+            print(f"  WARNING: Re-detection gave unexpected radius "
+                  f"(delta={delta_r}px) — keeping original center.")
+    else:
+        print("  WARNING: Re-detection failed — keeping original center.")
 
     # Stage 5 – Crop to label
     print("\n[Stage 5] Cropping to label...")
