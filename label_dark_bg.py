@@ -38,6 +38,7 @@ import numpy as np
 
 FINAL_SIZE        = (1000, 1000)
 CROP_MARGIN       = 0.02          # extra margin around label when cropping
+MAX_TILT          = 15.0          # maximum expected scan tilt in degrees
 WHITE_BORDER_THR  = 200           # pixel value above which a row/col is "white"
 WHITE_BORDER_FRAC = 0.80          # fraction of row/col that must be white to crop it
 DEBUG             = False
@@ -251,6 +252,14 @@ def detect_rotation(image, label, hole_radius):
     clahe    = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(masked)
 
+    # Stretch contrast to full range to make faint text more visible
+    min_val = np.min(enhanced[mask > 0])
+    max_val = np.max(enhanced[mask > 0])
+    if max_val > min_val:
+        enhanced = np.clip((enhanced.astype(np.float32) - min_val) /
+                           (max_val - min_val) * 255, 0, 255).astype(np.uint8)
+        enhanced = cv2.bitwise_and(enhanced, enhanced, mask=mask)
+
     _, thresh = cv2.threshold(enhanced, 0, 255,
                               cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
     edges = cv2.Canny(thresh, 50, 150, apertureSize=3)
@@ -265,14 +274,43 @@ def detect_rotation(image, label, hole_radius):
     for line in lines:
         x1, y1, x2, y2 = line[0]
         a = np.degrees(np.arctan2(y2 - y1, x2 - x1))
-        if -45.0 <= a <= 45.0:
+        if -MAX_TILT <= a <= MAX_TILT and a != 0.0:
             angles.append(a)
 
     if not angles:
         print("  WARNING: No horizontal lines. Assuming 0°.")
         return 0.0
 
-    median_angle = float(np.median(angles))
+    # Find densest 1°-wide bin by scanning across the range
+    best_center, best_count = 0.0, 0
+    for c in np.arange(-MAX_TILT, MAX_TILT, 0.1):
+        count = sum(1 for a in angles if abs(a - c) <= 0.5)
+        if count > best_count:
+            best_count, best_center = count, c
+    tight = [a for a in angles if abs(a - best_center) <= 0.5]
+
+    if len(tight) >= 4:
+        angles = tight
+    else:
+        # Weak cluster — retry with sensitive parameters
+        edges_s = cv2.Canny(thresh, 30, 100, apertureSize=3)
+        lines_s = cv2.HoughLinesP(edges_s, 1, np.pi / 180,
+                                  threshold=30, minLineLength=50, maxLineGap=5)
+        if lines_s is not None:
+            angles_s = []
+            for l in lines_s:
+                x1, y1, x2, y2 = l[0]
+                a = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+                if -MAX_TILT <= a <= MAX_TILT and a != 0.0:
+                    angles_s.append(a)
+            if angles_s:
+                median_s = float(np.median(angles_s))
+                tight_s = [a for a in angles_s if abs(a - median_s) <= 2.0]
+                if tight_s:
+                    angles = tight_s
+                    print("  Switched to sensitive parameters.")
+
+    median_angle = -float(np.median(angles))
     print(f"  {len(angles)} lines  ->  median angle = {median_angle:.2f}°")
     return median_angle
 
@@ -284,7 +322,7 @@ def detect_rotation(image, label, hole_radius):
 def correct_rotation(image, angle):
     """
     Rotate the FULL image so text becomes horizontal.
-    Same sign convention as record_label.py: positive angle corrects CCW tilt.
+    detect_rotation() negates arctan2 output, so angle is already the correction to apply directly.
     """
     if abs(angle) < 0.1:
         print("  Angle negligible — skipping rotation.")
@@ -292,7 +330,7 @@ def correct_rotation(image, angle):
 
     h, w    = image.shape[:2]
     center  = (w // 2, h // 2)
-    M       = cv2.getRotationMatrix2D(center, angle, 1.0)
+    M       = cv2.getRotationMatrix2D(center, -angle, 1.0)
     rotated = cv2.warpAffine(image, M, (w, h),
                              flags=cv2.INTER_CUBIC,
                              borderMode=cv2.BORDER_REPLICATE)
