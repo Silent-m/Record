@@ -24,10 +24,12 @@ Usage:
     (opens a file dialog to select an image)
 """
 
-import cv2
-import numpy as np
 import os
 from tkinter import Tk, filedialog
+
+import cv2
+import numpy as np
+
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +40,7 @@ FINAL_SIZE        = (1000, 1000)
 CROP_MARGIN       = 0.02          # extra margin around label when cropping
 WHITE_BORDER_THR  = 200           # pixel value above which a row/col is "white"
 WHITE_BORDER_FRAC = 0.80          # fraction of row/col that must be white to crop it
-DEBUG             = True
+DEBUG             = False
 
 
 # ---------------------------------------------------------------------------
@@ -170,9 +172,9 @@ def detect_label(image):
         print("  ERROR: Contour too small to fit ellipse.")
         return None
 
-    ellipse             = cv2.fitEllipse(largest)
-    center, axes, angle = ellipse
-    label_radius        = int(max(axes) / 2)
+    ellipse          = cv2.fitEllipse(largest)
+    center, axes, _  = ellipse
+    label_radius     = int(max(axes) / 2)
 
     print(f"  Label: center=({center[0]:.0f}, {center[1]:.0f})  "
           f"radius≈{label_radius}px")
